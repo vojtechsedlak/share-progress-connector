@@ -1,3 +1,12 @@
+/*
+ * This is a basic connector for Google Data Studio 
+ * It is based on the official documentation at https://developers.google.com/datastudio/connector/build
+ */
+
+/*
+ * Required config function that determines what is displayed on the configuration page for the connector
+ * See https://developers.google.com/datastudio/connector/reference#getconfig for more detail
+ */
 function getConfig(request) {
   var config = {
     configParams: [
@@ -18,6 +27,10 @@ function getConfig(request) {
   return config;
 }
 
+
+/*
+ * The definition of the data schema
+ */
 var fixedSchema = [
   {
     name: 'spId',
@@ -75,15 +88,25 @@ var fixedSchema = [
   }
 ];
 
-
+/*
+ * Required function to register the data schema defined above
+ * See https://developers.google.com/datastudio/connector/reference#getschema for more detail
+ */
 function getSchema(request) {
   return {'schema': fixedSchema};
 }
 
 
+/*
+ * Required function that retrieves and prepares data for the Data Studio dashboard
+ * See https://developers.google.com/datastudio/connector/reference#getdata for more detail
+ */
 function getData(request) {
+
+  // Using an external function here for better readability and cache handling
   var content = getSPData(request);
-//  var content = [];
+
+  // Prepare data schema for population
   var dataSchema = [];
   request.fields.forEach(function(field) {
     for (var i=0; i < fixedSchema.length; i++) {
@@ -135,7 +158,16 @@ function getData(request) {
   
 }
 
+/*
+ * Function that retrieves data from Share Progress
+ * Currently limited to share buttons
+ */
 function getSPData(request) {
+  /*
+   * To help circumvent API limits, caching is employed. 
+   * The following checks if cached data exists and if so returns it. 
+   * Otherwise data is retrieved from Share Progress.
+   */ 
   var cache = CacheService.getScriptCache();
   var cached = cache.get(request.configParams.campaign);
   if (cached != null) {
@@ -158,7 +190,7 @@ function getSPData(request) {
     var ids = JSON.parse(response.getContentText());
     
     
-    // Get Results for IDs
+    // Get Results for each ID
     ids.response.forEach(function(d) {
       if (d.page_url.indexOf(slug) > -1) {    
         try {
@@ -188,11 +220,17 @@ function getSPData(request) {
         finalData.push(row);
       }
     });
+
+    // Adding complete data to cache with an expiry of 500 seconds
     cache.put(request.configParams.campaign, JSON.stringify(finalData), 500);
     return finalData;  
   }
 }
 
+/*
+ * Required function to indicate whether OAuth2 is used
+ * See https://developers.google.com/datastudio/connector/reference#getAuthType for more detail
+ */
 function getAuthType() {
   var response = {
     "type": "NONE"
@@ -200,6 +238,7 @@ function getAuthType() {
   return response;
 }
 
+// Better, more verbose error handling
 function throwError (message, userSafe) {
   if (userSafe) {
     message = 'DS_USER:' + message;
